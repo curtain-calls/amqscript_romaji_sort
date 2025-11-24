@@ -1,14 +1,16 @@
 // ==UserScript==
 // @name         AMQ Romaji Dropdown Sort
 // @namespace    https://github.com/curtain-calls/amqscript_romaji_sort
-// @version      1.0
-// @description  Make your AMQ dropdown answer show Romaji first
+// @version      1.1
+// @description  Make your AMQ dropdown answer show Romaji first (Fixed duplicates)
 // @author       Lycee
 // @match        https://animemusicquiz.com/*
 // ==/UserScript==
 
 (function() {
     'use strict';
+
+    console.log('[Lycee Bot] Script loaded');
 
     let dropdownList = [];
     let isInitialized = false;
@@ -56,11 +58,21 @@
             romajiNames.add(title);
         }
 
+        // CRITICAL FIX: Remove any titles that appear in both sets
+        // This prevents duplicates from promotion or cache inconsistencies
+        for (const title of romajiNames) {
+            englishNames.delete(title);
+        }
+
         romajiSet = romajiNames;
         englishSet = englishNames;
         romajiCount = romajiNames.size;
-        dropdownList = [...romajiNames, ...englishNames];
-        console.log(`[Lycee Bot] Loaded ${romajiNames.size} Romaji (${promoted.size} promoted) + ${englishNames.size} English names (${dropdownList.length} total)`);
+
+        // CRITICAL FIX: Use Set to ensure no duplicates in final list
+        const combinedSet = new Set([...romajiNames, ...englishNames]);
+        dropdownList = [...combinedSet];
+
+        console.log(`[Lycee Bot] Ready: ${dropdownList.length} titles loaded`);
 
         forceUpdateAutoComplete();
     }
@@ -99,13 +111,10 @@
                 instance.evaluate();
             }
 
-            console.log("[Lycee Bot] ✅ Forced list update - Romaji now appears first!");
             return;
         }
 
         if (retryCount === 0) {
-            console.log("[Lycee Bot] Waiting for quiz to start...");
-
             if (typeof Listener !== 'undefined') {
                 new Listener("quiz ready", () => {
                     setTimeout(() => {
@@ -140,8 +149,6 @@
                                 instance._list = dropdownList;
                                 instance.evaluate();
                             }
-
-                            console.log("[Lycee Bot] ✅ List updated on quiz ready - Romaji now appears first!");
                         }
                     }, 100);
                 }).bindListener();
@@ -152,11 +159,9 @@
     function waitFor(checkFn, maxAttempts = 60, description = 'dependency') {
         return new Promise((resolve, reject) => {
             let attempts = 0;
-            console.log(`[Lycee Bot] Waiting for ${description}...`);
             const interval = setInterval(() => {
                 if (checkFn()) {
                     clearInterval(interval);
-                    console.log(`[Lycee Bot] ✅ ${description} loaded`);
                     resolve();
                 } else if (++attempts >= maxAttempts) {
                     clearInterval(interval);
@@ -170,10 +175,7 @@
         const originalUpdateList = AutoCompleteController.prototype.updateList;
 
         AutoCompleteController.prototype.updateList = function() {
-            console.log(`[Lycee Bot] updateList called, dropdownList.length = ${dropdownList.length}`);
-
             if (dropdownList.length === 0) {
-                console.warn("[Lycee Bot] List not ready, using default");
                 originalUpdateList.call(this);
                 return;
             }
@@ -208,8 +210,6 @@
 
                         instance.list = dropdownList;
                         instance._list = dropdownList;
-
-                        console.log("[Lycee Bot] Sort overridden in updateList (initial)");
                     }
 
                     listener.unbindListener();
@@ -249,8 +249,6 @@
 
                             instance.list = dropdownList;
                             instance._list = dropdownList;
-
-                            console.log("[Lycee Bot] Sort overridden in updateList (update)");
                         }
                     }
 
@@ -265,15 +263,13 @@
                 });
             }
         };
-
-        console.log("[Lycee Bot] AutoComplete hooked successfully");
     }
 
     async function initialize() {
         if (isInitialized) return;
 
         try {
-            console.log('[Lycee Bot] Starting initialization...');
+            console.log('[Lycee Bot] Initializing...');
 
             await waitFor(() => typeof libraryCacheHandler !== 'undefined', 60, 'libraryCacheHandler');
             await waitFor(() => typeof AutoCompleteController !== 'undefined', 60, 'AutoCompleteController');
@@ -284,7 +280,6 @@
 
             libraryCacheHandler.getCache((animeCache) => {
                 if (!animeCache || Object.keys(animeCache).length === 0) {
-                    console.warn("[Lycee Bot] Cache empty, retrying...");
                     setTimeout(() => libraryCacheHandler.getCache(extractNamesFromCache), 2000);
                     return;
                 }
@@ -292,10 +287,8 @@
                 isInitialized = true;
             });
 
-            console.log('[Lycee Bot] Script initialized successfully (Romaji First)');
         } catch (error) {
             console.error('[Lycee Bot] Initialization failed:', error);
-            console.log('[Lycee Bot] Will retry in 5 seconds...');
             setTimeout(initialize, 5000);
         }
     }
