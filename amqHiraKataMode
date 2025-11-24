@@ -1,9 +1,9 @@
 // ==UserScript==
-// @name         AMQ Multiple Choice Kana Converter
+// @name         AMQ Multiple Choice Kana Converter (Enhanced)
 // @namespace    https://github.com/your-namespace/amq-kana-converter
-// @version      1.0
-// @description  Convert Multiple Choice answers to Hiragana or Katakana for learning
-// @author       YourName
+// @version      4.1
+// @description  Convert AMQ multiple choice answers to Hiragana or Katakana with smart toggling (/hira, /kata) - No localStorage
+// @author       Lycee
 // @match        https://animemusicquiz.com/*
 // @grant        none
 // ==/UserScript==
@@ -11,344 +11,335 @@
 (function() {
     'use strict';
 
-    // Settings
+    // Settings - stored in memory only
     let conversionMode = 0; // 0 = Off, 1 = Hiragana, 2 = Katakana
-    const STORAGE_KEY = 'amq_kana_mode';
 
-    // Load saved setting
-    if (localStorage.getItem(STORAGE_KEY)) {
-        conversionMode = parseInt(localStorage.getItem(STORAGE_KEY));
-    }
+    // Expanded English → Katakana dictionary
+    window.englishToKatakanaDict = {
+        // Original words
+        "world": "ワールド", "game": "ゲーム", "life": "ライフ", "story": "ストーリー",
+        "war": "ウォー", "battle": "バトル", "hero": "ヒーロー", "sword": "ソード",
+        "art": "アート", "online": "オンライン", "stone": "ストーン", "quest": "クエスト",
+        "adventure": "アドベンチャー", "legend": "レジェンド", "star": "スター",
+        "sky": "スカイ", "heaven": "ヘブン", "hell": "ヘル", "angel": "エンジェル",
+        "demon": "デーモン", "dragon": "ドラゴン", "knight": "ナイト", "king": "キング",
+        "queen": "クイーン", "prince": "プリンス", "princess": "プリンセス",
+        "god": "ゴッド", "soul": "ソウル", "heart": "ハート", "dream": "ドリーム",
+        "love": "ラブ", "magic": "マジック", "power": "パワー", "force": "フォース",
+        "strike": "ストライク", "attack": "アタック", "death": "デス", "blood": "ブラッド",
+        "dark": "ダーク", "light": "ライト", "shadow": "シャドウ", "moon": "ムーン",
+        "sun": "サン", "fire": "ファイア", "water": "ウォーター", "wind": "ウィンド",
+        "earth": "アース", "ice": "アイス", "thunder": "サンダー", "storm": "ストーム",
+        "code": "コード", "gear": "ギア", "level": "レベル", "stage": "ステージ",
+        "master": "マスター", "lord": "ロード", "boss": "ボス", "guild": "ギルド",
+        "party": "パーティー", "team": "チーム", "squad": "スクワッド",
+        "zero": "ゼロ", "ace": "エース", "top": "トップ", "super": "スーパー",
+        "ultra": "ウルトラ", "mega": "メガ", "metal": "メタル", "steel": "スチール",
+        "iron": "アイアン", "gold": "ゴールド", "silver": "シルバー",
+        "crystal": "クリスタル", "diamond": "ダイヤモンド",
+        "blue": "ブルー", "red": "レッド", "black": "ブラック",
+        "white": "ホワイト", "green": "グリーン", "yellow": "イエロー",
+        "orange": "オレンジ", "pink": "ピンク", "purple": "パープル",
+        "colonel": "カーネル",
 
-    // Complete Hiragana mapping
+        // Additional common anime words
+        "time": "タイム", "space": "スペース", "future": "フューチャー",
+        "past": "パスト", "fate": "フェイト", "destiny": "デスティニー",
+        "chain": "チェーン", "cross": "クロス", "final": "ファイナル",
+        "end": "エンド", "beginning": "ビギニング", "genesis": "ジェネシス",
+        "crisis": "クライシス", "chaos": "カオス", "order": "オーダー",
+        "frontier": "フロンティア", "galaxy": "ギャラクシー", "universe": "ユニバース",
+        "infinity": "インフィニティ", "eternal": "エターナル", "phantom": "ファントム",
+        "ghost": "ゴースト", "spirit": "スピリット",
+        "blade": "ブレード", "gun": "ガン", "rifle": "ライフル",
+        "trigger": "トリガー", "bullet": "バレット", "shell": "シェル",
+        "armor": "アーマー", "shield": "シールド", "guard": "ガード",
+        "night": "ナイト", "day": "デイ", "dusk": "ダスク", "dawn": "ドーン",
+        "season": "シーズン", "episode": "エピソード", "chapter": "チャプター",
+        "volume": "ボリューム", "arc": "アーク", "saga": "サーガ",
+        "memories": "メモリーズ", "memory": "メモリー", "chronicle": "クロニクル",
+        "tales": "テイルズ", "tale": "テイル", "monogatari": "モノガタリ",
+        "school": "スクール", "high": "ハイ", "academy": "アカデミー",
+        "club": "クラブ", "host": "ホスト", "maid": "メイド",
+        "cafe": "カフェ", "restaurant": "レストラン", "shop": "ショップ",
+        "library": "ライブラリー", "garden": "ガーデン", "park": "パーク",
+        "tower": "タワー", "castle": "キャッスル", "palace": "パレス",
+        "temple": "テンプル", "shrine": "シュライン", "church": "チャーチ",
+        "city": "シティ", "town": "タウン", "village": "ビレッジ",
+        "island": "アイランド", "ocean": "オーシャン", "sea": "シー",
+        "mountain": "マウンテン", "forest": "フォレスト", "field": "フィールド",
+        "special": "スペシャル", "premium": "プレミアム", "deluxe": "デラックス",
+        "plus": "プラス", "extra": "エクストラ", "bonus": "ボーナス",
+        "new": "ニュー", "neo": "ネオ", "next": "ネクスト",
+        "revolution": "レボリューション", "evolution": "エボリューション",
+        "complex": "コンプレックス", "syndrome": "シンドローム",
+        "project": "プロジェクト", "operation": "オペレーション", "mission": "ミッション",
+        "target": "ターゲット", "system": "システム", "program": "プログラム",
+        "file": "ファイル", "data": "データ", "network": "ネットワーク",
+        "link": "リンク", "connect": "コネクト", "line": "ライン",
+        "live": "ライブ", "show": "ショー",
+        "performance": "パフォーマンス", "concert": "コンサート",
+        "music": "ミュージック", "song": "ソング", "melody": "メロディー",
+        "rhythm": "リズム", "beat": "ビート", "note": "ノート",
+        "girl": "ガール", "boy": "ボーイ", "man": "マン", "woman": "ウーマン",
+        "lady": "レディー", "sister": "シスター", "brother": "ブラザー",
+        "family": "ファミリー", "friend": "フレンド", "partner": "パートナー",
+        "limit": "リミット", "break": "ブレイク", "over": "オーバー",
+        "under": "アンダー", "inner": "インナー", "outer": "アウター",
+        "ex": "エックス", "versus": "バーサス", "and": "アンド"
+    };
+
+    // Enhanced Hiragana map with all characters
     const hiraganaMap = {
-        // Vowels
         'a': 'あ', 'i': 'い', 'u': 'う', 'e': 'え', 'o': 'お',
-        // K row
         'ka': 'か', 'ki': 'き', 'ku': 'く', 'ke': 'け', 'ko': 'こ',
         'kya': 'きゃ', 'kyu': 'きゅ', 'kyo': 'きょ',
-        // G row
         'ga': 'が', 'gi': 'ぎ', 'gu': 'ぐ', 'ge': 'げ', 'go': 'ご',
         'gya': 'ぎゃ', 'gyu': 'ぎゅ', 'gyo': 'ぎょ',
-        // S row
         'sa': 'さ', 'shi': 'し', 'su': 'す', 'se': 'せ', 'so': 'そ',
         'sha': 'しゃ', 'shu': 'しゅ', 'sho': 'しょ',
-        'si': 'し', 'sya': 'しゃ', 'syu': 'しゅ', 'syo': 'しょ',
-        // Z row
         'za': 'ざ', 'ji': 'じ', 'zu': 'ず', 'ze': 'ぜ', 'zo': 'ぞ',
         'ja': 'じゃ', 'ju': 'じゅ', 'jo': 'じょ',
-        'zi': 'じ', 'jya': 'じゃ', 'jyu': 'じゅ', 'jyo': 'じょ',
-        'zya': 'じゃ', 'zyu': 'じゅ', 'zyo': 'じょ',
-        // T row
         'ta': 'た', 'chi': 'ち', 'tsu': 'つ', 'te': 'て', 'to': 'と',
         'cha': 'ちゃ', 'chu': 'ちゅ', 'cho': 'ちょ',
-        'ti': 'ち', 'tu': 'つ', 'tya': 'ちゃ', 'tyu': 'ちゅ', 'tyo': 'ちょ',
-        // D row
         'da': 'だ', 'di': 'ぢ', 'du': 'づ', 'de': 'で', 'do': 'ど',
-        'dya': 'ぢゃ', 'dyu': 'ぢゅ', 'dyo': 'ぢょ',
-        // N row
         'na': 'な', 'ni': 'に', 'nu': 'ぬ', 'ne': 'ね', 'no': 'の',
         'nya': 'にゃ', 'nyu': 'にゅ', 'nyo': 'にょ',
-        // H row
         'ha': 'は', 'hi': 'ひ', 'fu': 'ふ', 'he': 'へ', 'ho': 'ほ',
         'hya': 'ひゃ', 'hyu': 'ひゅ', 'hyo': 'ひょ',
-        'hu': 'ふ',
-        // B row
         'ba': 'ば', 'bi': 'び', 'bu': 'ぶ', 'be': 'べ', 'bo': 'ぼ',
         'bya': 'びゃ', 'byu': 'びゅ', 'byo': 'びょ',
-        // P row
         'pa': 'ぱ', 'pi': 'ぴ', 'pu': 'ぷ', 'pe': 'ぺ', 'po': 'ぽ',
         'pya': 'ぴゃ', 'pyu': 'ぴゅ', 'pyo': 'ぴょ',
-        // M row
         'ma': 'ま', 'mi': 'み', 'mu': 'む', 'me': 'め', 'mo': 'も',
         'mya': 'みゃ', 'myu': 'みゅ', 'myo': 'みょ',
-        // Y row
         'ya': 'や', 'yu': 'ゆ', 'yo': 'よ',
-        // R row
         'ra': 'ら', 'ri': 'り', 'ru': 'る', 're': 'れ', 'ro': 'ろ',
         'rya': 'りゃ', 'ryu': 'りゅ', 'ryo': 'りょ',
-        // W row
         'wa': 'わ', 'wi': 'ゐ', 'we': 'ゑ', 'wo': 'を',
-        // N
-        'n': 'ん',
-        // Special
-        'vu': 'ゔ',
-        // Long vowel marker
-        'ー': 'ー', '-': 'ー'
+        'n': 'ん', 'nn': 'ん'
     };
 
-    // Complete Katakana mapping
+    // Katakana map (same structure as hiragana but katakana characters)
     const katakanaMap = {
-        // Vowels
         'a': 'ア', 'i': 'イ', 'u': 'ウ', 'e': 'エ', 'o': 'オ',
-        // K row
         'ka': 'カ', 'ki': 'キ', 'ku': 'ク', 'ke': 'ケ', 'ko': 'コ',
         'kya': 'キャ', 'kyu': 'キュ', 'kyo': 'キョ',
-        // G row
         'ga': 'ガ', 'gi': 'ギ', 'gu': 'グ', 'ge': 'ゲ', 'go': 'ゴ',
         'gya': 'ギャ', 'gyu': 'ギュ', 'gyo': 'ギョ',
-        // S row
         'sa': 'サ', 'shi': 'シ', 'su': 'ス', 'se': 'セ', 'so': 'ソ',
         'sha': 'シャ', 'shu': 'シュ', 'sho': 'ショ',
-        'si': 'シ', 'sya': 'シャ', 'syu': 'シュ', 'syo': 'ショ',
-        // Z row
         'za': 'ザ', 'ji': 'ジ', 'zu': 'ズ', 'ze': 'ゼ', 'zo': 'ゾ',
         'ja': 'ジャ', 'ju': 'ジュ', 'jo': 'ジョ',
-        'zi': 'ジ', 'jya': 'ジャ', 'jyu': 'ジュ', 'jyo': 'ジョ',
-        'zya': 'ジャ', 'zyu': 'ジュ', 'zyo': 'ジョ',
-        // T row
         'ta': 'タ', 'chi': 'チ', 'tsu': 'ツ', 'te': 'テ', 'to': 'ト',
         'cha': 'チャ', 'chu': 'チュ', 'cho': 'チョ',
-        'ti': 'チ', 'tu': 'ツ', 'tya': 'チャ', 'tyu': 'チュ', 'tyo': 'チョ',
-        // D row
         'da': 'ダ', 'di': 'ヂ', 'du': 'ヅ', 'de': 'デ', 'do': 'ド',
-        'dya': 'ヂャ', 'dyu': 'ヂュ', 'dyo': 'ヂョ',
-        // N row
         'na': 'ナ', 'ni': 'ニ', 'nu': 'ヌ', 'ne': 'ネ', 'no': 'ノ',
         'nya': 'ニャ', 'nyu': 'ニュ', 'nyo': 'ニョ',
-        // H row
         'ha': 'ハ', 'hi': 'ヒ', 'fu': 'フ', 'he': 'ヘ', 'ho': 'ホ',
         'hya': 'ヒャ', 'hyu': 'ヒュ', 'hyo': 'ヒョ',
-        'hu': 'フ',
-        // B row
         'ba': 'バ', 'bi': 'ビ', 'bu': 'ブ', 'be': 'ベ', 'bo': 'ボ',
         'bya': 'ビャ', 'byu': 'ビュ', 'byo': 'ビョ',
-        // P row
         'pa': 'パ', 'pi': 'ピ', 'pu': 'プ', 'pe': 'ペ', 'po': 'ポ',
         'pya': 'ピャ', 'pyu': 'ピュ', 'pyo': 'ピョ',
-        // M row
         'ma': 'マ', 'mi': 'ミ', 'mu': 'ム', 'me': 'メ', 'mo': 'モ',
         'mya': 'ミャ', 'myu': 'ミュ', 'myo': 'ミョ',
-        // Y row
         'ya': 'ヤ', 'yu': 'ユ', 'yo': 'ヨ',
-        // R row
         'ra': 'ラ', 'ri': 'リ', 'ru': 'ル', 're': 'レ', 'ro': 'ロ',
         'rya': 'リャ', 'ryu': 'リュ', 'ryo': 'リョ',
-        // W row
         'wa': 'ワ', 'wi': 'ヰ', 'we': 'ヱ', 'wo': 'ヲ',
-        // N
-        'n': 'ン',
-        // Special
-        'vu': 'ヴ',
-        // Long vowel marker
-        'ー': 'ー', '-': 'ー'
+        'n': 'ン', 'nn': 'ン',
+        'va': 'ヴァ', 'vi': 'ヴィ', 'vu': 'ヴ', 've': 'ヴェ', 'vo': 'ヴォ'
     };
 
-    function convertWord(word, useKatakana) {
-        const kanaMap = useKatakana ? katakanaMap : hiraganaMap;
-        const smallTsu = useKatakana ? 'ッ' : 'っ';
-
+    function convertToHiragana(word) {
         let result = '';
+        const lower = word.toLowerCase();
         let i = 0;
-        const lowerWord = word.toLowerCase();
 
-        while (i < lowerWord.length) {
+        while (i < lower.length) {
             let matched = false;
 
-            // Check for doubled consonants (except 'n')
-            if (i < lowerWord.length - 1 &&
-                lowerWord[i] === lowerWord[i + 1] &&
-                lowerWord[i] !== 'n' &&
-                'bcdghjkmprstyz'.includes(lowerWord[i])) {
-                result += smallTsu;
+            // Handle double consonants (small tsu)
+            if (i < lower.length - 1 &&
+                lower[i] === lower[i + 1] &&
+                /[kstpgzbdhjfmryw]/.test(lower[i])) {
+                result += 'っ';
                 i++;
                 continue;
             }
 
-            // Try to match 3, 2, or 1 character combinations
+            // Try 3-char combos first, then 2-char, then 1-char
             for (let len = 3; len >= 1; len--) {
-                if (i + len > lowerWord.length) continue;
-
-                const chunk = lowerWord.substr(i, len);
-
-                if (kanaMap[chunk]) {
-                    result += kanaMap[chunk];
+                const part = lower.substr(i, len);
+                if (hiraganaMap[part]) {
+                    result += hiraganaMap[part];
                     i += len;
                     matched = true;
                     break;
                 }
             }
 
-            // If no match found, conversion failed
             if (!matched) {
-                return null;
+                result += lower[i];
+                i++;
             }
         }
-
         return result;
     }
 
-    function convertToKana(title, useKatakana) {
+    function convertToKatakana(title) {
         if (!title) return title;
 
-        // Split by spaces and punctuation (including special chars like ☆★!), but keep them
-        const parts = title.split(/(\s+|:|\.|-|\/|☆|★|♪|♡|♥|×|・|~|～|!|！|x|X|\d+)/);
-        let result = [];
-        let hadSuccess = false;
-        let afterPunctuation = false;
+        // Split by common separators but keep them
+        const parts = title.split(/(\s+|:|\.|-|\/|☆|★|♪|♡|♥|×|・|~|～|!|！|\?|？|\d+)/);
 
-        for (let part of parts) {
-            // Keep whitespace, punctuation, numbers, and 'x'
-            if (/^(\s+|:|\.|-|\/|☆|★|♪|♡|♥|×|・|~|～|!|！|x|X|\d+)$/.test(part)) {
-                result.push(part);
-                if (/^(:|\.|-|☆|★|×|・|!|x|X)$/.test(part)) {
-                    afterPunctuation = true;
-                }
-                continue;
+        return parts.map(part => {
+            // Keep separators, spaces, and numbers as-is
+            if (/^(\s+|:|\.|-|\/|☆|★|♪|♡|♥|×|・|~|～|!|！|\?|？|\d+)$/.test(part)) {
+                return part;
             }
 
-            if (!part) continue;
+            // Skip if already in katakana/hiragana/kanji
+            if (/[ぁ-ゔァ-ヴー一-龯]/.test(part)) {
+                return part;
+            }
 
-            const converted = convertWord(part, useKatakana);
+            const lower = part.toLowerCase();
 
-            if (converted !== null) {
-                result.push(converted);
-                hadSuccess = true;
-                afterPunctuation = false;
-            } else {
-                // Conversion failed
-                if (hadSuccess && afterPunctuation) {
-                    // We already converted something and hit punctuation,
-                    // skip remaining English parts
+            // First check dictionary for known English words
+            if (englishToKatakanaDict[lower]) {
+                return englishToKatakanaDict[lower];
+            }
+
+            // Then try basic romaji → katakana conversion
+            let result = '';
+            let i = 0;
+
+            while (i < lower.length) {
+                let matched = false;
+
+                // Handle double consonants (small tsu)
+                if (i < lower.length - 1 &&
+                    lower[i] === lower[i + 1] &&
+                    /[kstpgzbdhjfmryw]/.test(lower[i])) {
+                    result += 'ッ';
+                    i++;
                     continue;
-                } else {
-                    // Haven't converted anything yet, keep original
-                    result.push(part);
+                }
+
+                // Try 3-char combos first, then 2-char, then 1-char
+                for (let len = 3; len >= 1; len--) {
+                    const segment = lower.substr(i, len);
+                    if (katakanaMap[segment]) {
+                        result += katakanaMap[segment];
+                        i += len;
+                        matched = true;
+                        break;
+                    }
+                }
+
+                if (!matched) {
+                    // Keep unconvertible characters as-is
+                    result += part[i];
+                    i++;
                 }
             }
-        }
 
-        // If we converted anything, return converted parts only
-        // If nothing converted, return original
-        const finalResult = result.join('');
-        return hadSuccess ? finalResult : title;
+            return result || part;
+        }).join('');
     }
 
     function applyConversion() {
         if (!quiz?.answerInput?.multipleChoice?.answerOptions) return;
+        if (!quiz.answerInput.multipleChoice.displayed) return;
 
         quiz.answerInput.multipleChoice.answerOptions.forEach(option => {
             if (!option.currentName) return;
 
             let displayText;
             if (conversionMode === 0) {
-                // Mode 0: Off - restore original and enable popover
                 displayText = option.currentName;
                 option.$body.popover('enable');
-            } else {
-                // Mode 1: Hiragana, Mode 2: Katakana
-                const useKatakana = (conversionMode === 2);
-                displayText = convertToKana(option.currentName, useKatakana);
-                // Disable popover when conversion is active
+            } else if (conversionMode === 1) {
+                displayText = convertToHiragana(option.currentName);
                 option.$body.popover('disable');
+                option.$body.off('mouseenter'); // Remove hover event
+            } else if (conversionMode === 2) {
+                displayText = convertToKatakana(option.currentName);
+                option.$body.popover('disable');
+                option.$body.off('mouseenter'); // Remove hover event
             }
 
             option.$text.text(displayText);
         });
-
-        console.log(`[Kana Converter] Applied ${['Off', 'Hiragana', 'Katakana'][conversionMode]} mode`);
     }
 
-    function toggleMode() {
-        conversionMode = (conversionMode + 1) % 3;
-        localStorage.setItem(STORAGE_KEY, conversionMode);
+    function toggleMode(mode) {
+        const modeMap = { 'hira': 1, 'kata': 2 };
+
+        if (conversionMode === modeMap[mode]) {
+            conversionMode = 0; // Toggle off if same mode
+        } else {
+            conversionMode = modeMap[mode]; // Switch to new mode
+        }
 
         const modeName = ['Off', 'Hiragana', 'Katakana'][conversionMode];
         console.log(`[Kana Converter] Mode switched to: ${modeName}`);
 
-        // Show notification
-        if (typeof displayMessage !== 'undefined') {
-            displayMessage(`Kana Mode: ${modeName}`);
-        }
-
-        // Apply to current answers if visible
-        applyConversion();
-    }
-
-    function toggleSpecificMode(mode) {
-        const modeMap = { 'hira': 1, 'kata': 2 };
-        const targetMode = modeMap[mode];
-
-        // If already in this mode, turn off. Otherwise, switch to it.
-        if (conversionMode === targetMode) {
-            conversionMode = 0; // Turn off
-        } else {
-            conversionMode = targetMode;
-        }
-
-        localStorage.setItem(STORAGE_KEY, conversionMode);
-
-        const modeName = ['Off', 'Hiragana', 'Katakana'][conversionMode];
-        console.log(`[Kana Converter] Mode set to: ${modeName}`);
-
-        // Show notification
         if (typeof gameChat !== 'undefined') {
             gameChat.systemMessage(`Kana Mode: ${modeName}`);
         }
 
-        // Apply to current answers if visible
         applyConversion();
     }
 
+    // Expose mode getter for other scripts
+    window.getKanaMode = () => conversionMode;
+
     function setupChatCommands() {
-        // Hook into game chat input
         const chatInput = document.getElementById('gcInput');
         if (!chatInput) {
-            console.warn('[Kana Converter] Chat input not found, retrying...');
             setTimeout(setupChatCommands, 1000);
             return;
         }
 
-        chatInput.addEventListener('keydown', (e) => {
+        chatInput.addEventListener('keydown', e => {
             if (e.key === 'Enter') {
-                const message = chatInput.value.trim();
-
-                // Check for commands
-                if (message === '/hira') {
+                const msg = chatInput.value.trim();
+                if (msg === '/hira') {
                     e.preventDefault();
-                    toggleSpecificMode('hira');
+                    toggleMode('hira');
                     chatInput.value = '';
-                } else if (message === '/kata') {
+                } else if (msg === '/kata') {
                     e.preventDefault();
-                    toggleSpecificMode('kata');
+                    toggleMode('kata');
                     chatInput.value = '';
                 }
             }
         });
 
-        console.log('[Kana Converter] Chat commands hooked!');
+        console.log('[Kana Converter] Chat commands ready: /hira, /kata');
     }
 
     function initialize() {
-        console.log('[Kana Converter] Initializing...');
-
-        // Wait for quiz to be ready
+        console.log('[Kana Converter] Initializing (Enhanced v4.1)...');
         const waitForQuiz = setInterval(() => {
-            if (typeof quiz !== 'undefined' &&
-                typeof Listener !== 'undefined') {
+            if (typeof quiz !== 'undefined' && typeof Listener !== 'undefined') {
                 clearInterval(waitForQuiz);
 
-                // Listen for when answers appear
-                new Listener("quiz ready", () => {
-                    console.log('[Kana Converter] Quiz ready');
-                }).bindListener();
-
                 new Listener("play next song", () => {
-                    setTimeout(() => {
-                        applyConversion();
-                    }, 100);
+                    setTimeout(() => applyConversion(), 100);
                 }).bindListener();
 
-                // Hook into chat commands
                 setupChatCommands();
 
-                console.log('[Kana Converter] Initialized! Use /hira or /kata in chat to toggle');
-                console.log(`[Kana Converter] Current mode: ${['Off', 'Hiragana', 'Katakana'][conversionMode]}`);
+                console.log('[Kana Converter] Ready! Commands: /hira, /kata');
+                console.log('[Kana Converter] Dictionary size: ' + Object.keys(englishToKatakanaDict).length + ' words');
             }
         }, 500);
     }
 
-    // Start initialization
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initialize);
     } else {
